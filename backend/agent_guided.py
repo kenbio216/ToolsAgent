@@ -5,6 +5,7 @@ from agent_simple import SimpleAgentService
 from agent_service import Conflict,stamp,text
 from agent_catalog import PEOPLE,BY_PERSON,CORE,CATALOG,BY_ITEM,EXTRA
 from agent_collective import GROUP,GROUP_BY_ID
+from agent_essentials import ESSENTIALS,responses as essential_responses,readiness,followup
 
 PERSONAL_PLAN=json.loads(Path(__file__).with_name('personal_plan.json').read_text())['items']
 def group_owners(item):return [p for p in re.split(r'[，,、\s]+',item.get('assigned','')) if p]
@@ -24,7 +25,7 @@ def planned_quantity(item,name):
     return None
 
 BORROW_SYSTEM='''你是山野装备借还登记助手。只输出简体中文JSON：
-{"reply":"简短回应或1至2个具体追问","proposals":[{"item":"目录id","action":"loan_set|borrow|return|issue","quantity":整数,"condition":"正常|待检查|异常","receiver":"归还接收人，其他可空","detail":"说明"}],"noBorrow":false,"memory":"仅用户明确要求记住的装备事实，否则空"}。
+{"reply":"简短回应或1至2个具体追问","proposals":[{"item":"目录id","action":"loan_set|borrow|return|issue|self","quantity":整数,"condition":"正常|待检查|异常","receiver":"归还接收人，其他可空","detail":"说明"}],"noBorrow":false,"memory":"仅用户明确要求记住的装备事实，否则空"}。
 当前是第三步“装备登记与交流”，可以登记借出、归还，也能反映额外集体装备、姓名错误、使用反馈、装备分配意见。借还视角始终是当前登记人从协会领用；不要反转借出/借入方向。
 反馈时可额外输出feedback对象：{"category":"bug|catalog|suggestion|other","content":"用户真实提出的意见，最多2000字"}，不反馈时省略。额外集体装备归catalog，分配意见归suggestion，姓名纠错归other，使用故障归bug。反馈不属于个人装备借用，不为反馈创建借还proposals，不擅自换身份、重分配、追加飞书装备种类；生成意见草稿供本人确认，负责人在后台查看。不要把意见混入私人装备记忆。
 可在第三步补报第二步漏填的集体装备：输出独立collectiveProposals数组，形如[{"item":"集体目录id","checked":true,"quantity":实际携带整数或null,"detail":"本人补报"}]。quantity为当前本人携带总数，不是新增量；只列用户明确提到的项目，确认后只修改这些项目，不清空其余第二步记录。取消携带用checked=false且quantity=null。尚未实际携带、只有想法时先追问，不生成补报。目录外的额外集体物品先生成catalog意见供负责人处理，不能混入个人借还proposals。
@@ -32,6 +33,9 @@ BORROW_SYSTEM='''你是山野装备借还登记助手。只输出简体中文JSO
 同一姓名可以重新填写，以最后确认的数量覆盖当前记录，每次修改保留流水。“我这次借了两件抓绒”“之前写错，实际是一件”用loan_set，quantity为这次活动该装备借出总数，重复登记不能累加。只有明确说“又借/再借/追加”才用borrow，quantity为新增数量。return仍为这次实际归还的增量，必须有真实归还事实和接收人；不要为了减少借出总数编造归还。
 如果用户明确说明本次没有从协会借任何装备，设置noBorrow=true且proposals=[]，程序会生成全目录借出0、归还0的待确认草稿，覆盖已有数量但保留流水。不要把“没有再借”“没有借抓绒”等部分否定扩大成全部未借；没有明确全未借就用false。已经全部归还也不等于从未借用，必须登记return，不能noBorrow。
 自带装备不属于协会借用，不得写成borrow。技术装备的自带和已领数量在第一步填写，其他自有装备可按用户明确要求记忆。
+借出确认后，程序会按已确认记录主动询问尚未说明的头灯、救生毯、雨衣、对讲机，无需模型重复罗列或声称已带齐。系统提供“必备装备已确认情况”，status=unknown才是未说明；deferred表示本人暂不补登记，unprepared表示尚未准备，二者都不等于已持有，不要在无关对话中反复追问。对讲机实际携带和协会借还来源分开，不能根据计划或备用机分配推断个人借用。
+用户回答这四项自备时，可用action=self登记本人明确的自备总数，不改变协会借还数。“救生三件套都自备，各1件”拆成头灯、救生毯、雨衣各1；仅说“这些是自备的”而不清楚具体项目或数量，先追问，不能编造数量。self仅允许这四项，技术装备仍回第一步填写。不能把“没借”“没有再借”“已归还”当作自备。
+用户明确表示某些必备装备“暂不补充登记/不用再问”或“尚未准备”时，可输出essentialResponses数组，形如[{"item":"headlamp|blanket|raincoat|radio","status":"deferred|unprepared","detail":"用户说明"}]，前者用deferred，后者用unprepared；必须只列本人明确回应的项目，不明确指代时先问。此说明也是待确认草稿，确认后才保存。不要因一次普通借还、反馈、沉默或全未向协会借用就生成此说明；不要用它推断自备或把借出、归还清零。只说“没有从协会借”仍需核实是否自备，不能自动跳过提醒。
 第一步已单独核对个人技术装备，第二步已单独核对集体携带；第三步不负责补齐清单，不根据前两步勾选推断借用。
 默认围绕个人清单里的可借装备：大抓绒、攀岩鞋、头盔、安全带、防水背包、大羽绒、冲锋衣、冲锋裤、雨衣、头灯、救生毯、雪套等。泛泛说“登记刚实际借到的装备”时，问实际领到什么及数量，可举抓绒、攀岩鞋的例子。
 绝对不要主动列举或要求核对主锁5把、ATC、上升器、抓结、120扁带、副保快挂这一套；只有用户当前明确提到其中某项的实际借还，才记录该项。不能把第一步的未勾选当作需要借用。
@@ -51,6 +55,7 @@ class GuidedAgentService(SimpleAgentService):
             CREATE TABLE IF NOT EXISTS job_scopes(job TEXT PRIMARY KEY,stage TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS message_scopes(id INTEGER PRIMARY KEY,stage TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS voice_jobs(id TEXT PRIMARY KEY,request TEXT UNIQUE,person TEXT,state TEXT,text TEXT DEFAULT '',error TEXT DEFAULT '',created TEXT);
+            CREATE TABLE IF NOT EXISTS essential_responses(person TEXT,item TEXT,status TEXT,detail TEXT,updated TEXT,PRIMARY KEY(person,item));
             ''')
             d.execute("UPDATE voice_jobs SET state='error',error='识别被重启中断，请重新录音' WHERE state='running'")
             for row in d.execute('SELECT person FROM members').fetchall():
@@ -64,6 +69,10 @@ class GuidedAgentService(SimpleAgentService):
                 base=d.execute('SELECT checked,quantity FROM group_items WHERE person=? AND item=?',(target,i['id'])).fetchone() if target else None
                 d.execute('INSERT OR IGNORE INTO group_items VALUES(?,?,?,?)',(p,i['id'],base['checked'] if base else 0,base['quantity'] if base else None))
         return result
+
+    def essential_state(self,p):
+        items=self.profile(p)['items']
+        with self.db() as d:return readiness(d,self.record_source(d,p),items)
 
     def guided_state(self,p,owner):
         result=self.simple_state(p,owner)
@@ -100,6 +109,19 @@ class GuidedAgentService(SimpleAgentService):
 
     def on_record_confirmed(self,d,event,value,job):
         super().on_record_confirmed(d,event,value,job)
+        acknowledgements=essential_responses(value.get('essentialResponses'))
+        if acknowledgements:
+            event['essentialResponses']=acknowledgements
+            if not event['entries']:event['kind']='essentials'
+            for entry in acknowledgements:
+                for who in {event['person'],event['sharedSource']}:
+                    d.execute('INSERT OR REPLACE INTO essential_responses VALUES(?,?,?,?,?)',(who,entry['item'],entry['status'],entry['detail'],event['created']))
+        # Freshly confirmed possession supersedes a prior "not ready" reply.
+        for entry in event['entries']:
+            after=event['after'][entry['item']]
+            if entry['item'] in ESSENTIALS and entry['action'] in ('self','loan_set','borrow') and after['owned']+after['borrowed']-after['returned']>0:
+                for who in {event['person'],event['sharedSource']}:
+                    d.execute('DELETE FROM essential_responses WHERE person=? AND item=?',(who,entry['item']))
         patches=self.collective_patches(value.get('collectiveProposals'))
         if not patches:return
         p=event['person'];source=event['sharedSource']
@@ -182,6 +204,17 @@ class GuidedAgentService(SimpleAgentService):
         if job:
             scope=d.execute('SELECT stage FROM job_scopes WHERE job=?',(job,)).fetchone()
             if scope:d.execute('INSERT INTO message_scopes VALUES(?,?)',(message_id,scope['stage']))
+            if scope and scope['stage']=='borrow':
+                row=d.execute('SELECT person,answer,confirmed FROM jobs WHERE id=?',(job,)).fetchone()
+                answer=json.loads(row['answer'])
+                # A receipt is written only once, after confirmation, inside the
+                # same transaction. No extra model call or pending draft is used.
+                source=self.record_source(d,row['person'])
+                items={r['item']:dict(r) for r in d.execute('SELECT * FROM items WHERE person=?',(source,))}
+                if answer.get('noBorrow') or any(e['action'] in ('borrow','loan_set') and e['quantity']>0 and items[e['item']]['borrowed']>items[e['item']]['returned'] for e in answer.get('proposals',[])):
+                    question=followup(readiness(d,source,items))
+                    if question:
+                        d.execute('UPDATE messages SET content=content||? WHERE id=?',('\n\n'+question,message_id))
     def model_input(self,job,person,state):
         with self.db() as d:
             scope=d.execute('SELECT stage FROM job_scopes WHERE job=?',(job,)).fetchone()
@@ -191,7 +224,7 @@ class GuidedAgentService(SimpleAgentService):
         guided=self.guided_state(person,False)
         ctx={'当前登记人':state['person'],'个人可借目录':[{'id':i['id'],'name':i['name'],'unit':i['unit']} for i in CATALOG if i['id'] in dict(EXTRA)],
              '仅当用户主动提到才使用的技术装备目录':[{'id':i['id'],'name':i['name'],'unit':i['unit']} for i in CORE],
-             '真实借还记录':loans,'独立装备记忆':state['notes'],
+             '真实借还记录':loans,'独立装备记忆':state['notes'],'必备装备已确认情况':self.essential_state(person),
              '集体装备目录与本人第二步记录':[{**{k:i[k] for k in ('id','name','total','unit','plannedQuantity')},'assigned':state['person']['name'] if state['person']['name'] in group_owners(i) else '', '本人已确认':guided['collectiveChecks'].get(i['id'],{})} for i in guided['collective']],
              '可能遗漏的本人集体项目':guided['collectiveReminders']}
         return BORROW_SYSTEM+'\n'+json.dumps(ctx,ensure_ascii=False),rows[:-1]
@@ -200,6 +233,9 @@ class GuidedAgentService(SimpleAgentService):
             scope=d.execute('SELECT stage FROM job_scopes WHERE job=?',(job,)).fetchone()
             recent=d.execute("SELECT content FROM messages WHERE person=? AND role='user' ORDER BY id DESC LIMIT 1",(person,)).fetchone()
         answer['collectiveProposals']=self.collective_patches(answer.get('collectiveProposals'))
+        answer['essentialResponses']=essential_responses(answer.get('essentialResponses'))
+        if {e['item'] for e in answer['essentialResponses']} & {e.get('item') for e in answer['proposals'] if e.get('action') in ('self','borrow','loan_set') and e.get('quantity',0)>0}:
+            raise ValueError('同一装备不能同时登记持有数量和暂不补登记，请明确本次情况')
         if answer.get('feedback') is not None:
             f=answer['feedback']
             if not isinstance(f,dict) or f.get('category') not in ('bug','catalog','suggestion','other') or len(text(f.get('content',''),2000))<2:raise ValueError('意见草稿未完整，请再说明要反馈的内容')
@@ -209,11 +245,12 @@ class GuidedAgentService(SimpleAgentService):
             if not scope or scope['stage']!='borrow' or answer['proposals']:raise ValueError('全部未借与其他借还记录不能混在一份草稿中，请重新说明')
             items=self.profile(person)['items']
             message=recent['content'].strip() if recent else ''
+            if message.startswith('借出装备登记：\n'):message=message[len('借出装备登记：\n'):].strip()
             declaration=bool(re.search(r'(?:没有|没|未)(?:从协会|向协会)?(?:借用|借|领用|领)(?:任何(?:东西|装备)?|东西|装备|过)(?:[。！!，,\s]|$)|(?:全部|所有)(?:个人)?装备(?:都|均)?(?:是|为)?自带',message))
             empty_reply=message.rstrip('。.!！') in ('没有了','没有','无','都没有') and not any(a['borrowed'] or a['returned'] for a in items.values())
             if re.search(r'归还|还清|交还|还了|没有再借|没再借|没借抓绒',message) or not (declaration or empty_reply):raise ValueError('请明确说明“本次没有从协会借任何装备”；已经归还请登记实际归还，不会清零历史借出')
             answer['proposals']=self.entries([{'item':i['id'],'action':'loan_set','quantity':0,'returned':0,'condition':items[i['id']]['condition'],'detail':'本人声明本次未向协会借用；覆盖借出和归还为0，原记录保留流水'} for i in CATALOG])
-        if scope and scope['stage']=='borrow' and any(e['action'] not in ('loan_set','borrow','return','issue') for e in answer['proposals']):raise ValueError('这一步只登记借还，请重新说明实际领用的装备；个人核对在第一步操作')
+        if scope and scope['stage']=='borrow' and any(e['action'] not in ('loan_set','borrow','return','issue') and not(e['action']=='self' and e['item'] in ESSENTIALS) for e in answer['proposals']):raise ValueError('这一步只登记借还及必备装备自备说明；个人技术装备核对在第一步操作')
 
     def voice_start(self,p,value):
         request=text(value.get('requestId',''),100);audio=value.get('audio','');mime=value.get('mime','')

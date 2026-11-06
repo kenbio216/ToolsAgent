@@ -224,7 +224,7 @@ class AgentService:
             notes=[dict(r) for r in d.execute('SELECT id,content,created FROM notes WHERE person=? ORDER BY created DESC LIMIT 20',(person,))]
             events=[{'id':r['id'],'person':r['person'],'state':r['state'],'error':r['error'],'created':r['created'],'entries':json.loads(r['data'])['entries']} for r in d.execute('SELECT * FROM events '+('' if owner else 'WHERE person=? ')+'ORDER BY created DESC LIMIT 40',() if owner else (person,))]
             active=[dict(r) for r in d.execute("SELECT id,state,created FROM jobs WHERE person=? AND state='running'",(person,))]
-            drafts=[{'id':r['id'],'answer':json.loads(r['answer']),'created':r['created']} for r in d.execute("SELECT * FROM jobs WHERE person=? AND state='done' AND confirmed='' ORDER BY created DESC LIMIT 3",(person,)) if json.loads(r['answer']).get('proposals') or json.loads(r['answer']).get('memory') or json.loads(r['answer']).get('feedback') or json.loads(r['answer']).get('collectiveProposals')]
+            drafts=[{'id':r['id'],'answer':json.loads(r['answer']),'created':r['created']} for r in d.execute("SELECT * FROM jobs WHERE person=? AND state='done' AND confirmed='' ORDER BY created DESC LIMIT 3",(person,)) if any(json.loads(r['answer']).get(k) for k in ('proposals','memory','feedback','collectiveProposals','essentialResponses'))]
             ready=d.execute("SELECT value FROM settings WHERE key='ready'").fetchone()
         return {**profile,'owner':bool(owner),'people':PEOPLE if owner else [BY_PERSON[person]],'catalog':CATALOG,'core':CORE,'messages':messages,'notes':notes,'events':events,'drafts':drafts,'activeJobs':active,'sheetUrl':SHEET_URL,'sheetsReady':bool(ready),'model':'glm-5.3-flash','reasoning':'max','team': [self.profile(p['id']) for p in PEOPLE] if owner else []}
     def prepare(self):
@@ -262,7 +262,7 @@ class AgentService:
         memory=text(value.get('memory',''),500)
         feedback=value.get('feedback')
         collective=value.get('collectiveProposals')
-        entries=[] if not value.get('entries') and (memory or feedback or collective) else self.entries(value.get('entries',[]))
+        entries=[] if not value.get('entries') and (memory or feedback or collective or value.get('essentialResponses')) else self.entries(value.get('entries',[]))
         with self.db() as d:
             d.execute('BEGIN IMMEDIATE')
             prior=d.execute('SELECT id,person FROM events WHERE request=?',(request,)).fetchone()
@@ -322,6 +322,10 @@ class AgentService:
             if value.get('noBorrow'):summary='已确认本次未借装备，借出0、归还0。'+('正在同步飞书。' if target else '已保存在后台。')+('集体携带补报也已保存。' if collective else '')
             if feedback and not entries:summary='已提交意见，装备负责人可在后台查看；未修改装备借还数量。'
             if collective and not entries:summary='已补充集体装备携带，第二步及负责人管理页已更新。'+('意见也已提交。' if feedback else '')
+            if value.get('essentialResponses'):
+                from agent_essentials import RESPONSE_LABELS
+                note='；'.join(BY_ITEM[e['item']]['name']+'：'+RESPONSE_LABELS[e['status']] for e in value['essentialResponses'])
+                summary=(summary+'\n' if entries or collective or feedback else '')+'已保存装备说明：'+note+'。'
             if not entries or not all(e['action']=='check' for e in entries):
                 cursor=d.execute('INSERT INTO messages(person,role,content,created) VALUES(?,?,?,?)',(person,'assistant',summary,stamp()))
                 self.on_record_message(d,job,cursor.lastrowid)
@@ -401,7 +405,7 @@ class AgentService:
         if job['confirmed']:return {'event':job['confirmed'],'duplicate':True}
         if job['state'] in ('superseded','discarded'):raise Conflict('这份旧草稿已失效，请核对最新草稿后再登记')
         if job['state']!='done':raise ValueError('请等待识别完成再核对登记')
-        return self.record(person,{**value,'entries':job['answer'].get('proposals',[]),'memory':job['answer'].get('memory',''),'feedback':job['answer'].get('feedback'),'noBorrow':job['answer'].get('noBorrow',False),'collectiveProposals':job['answer'].get('collectiveProposals',[])},job['id'])
+        return self.record(person,{**value,'entries':job['answer'].get('proposals',[]),'memory':job['answer'].get('memory',''),'feedback':job['answer'].get('feedback'),'noBorrow':job['answer'].get('noBorrow',False),'collectiveProposals':job['answer'].get('collectiveProposals',[]),'essentialResponses':job['answer'].get('essentialResponses',[])},job['id'])
     def sync_loop(self):
         while not self.stopping.is_set():
             self.wake.wait(3);self.wake.clear()

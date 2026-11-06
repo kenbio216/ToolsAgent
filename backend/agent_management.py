@@ -158,7 +158,7 @@ class ManagementAgentService(GuidedAgentService):
         with self.db() as d:
             events=[]
             for row in d.execute('SELECT id,state,error,created,data FROM events WHERE person=? ORDER BY rowid DESC LIMIT 200',(p,)):
-                r=dict(row);raw=json.loads(r.pop('data'));r['kind']=raw.get('kind','equipment');r['entries']=raw.get('entries',[]);r['feedback']=raw.get('feedback');r['noBorrow']=bool(raw.get('noBorrow'));r['collective']=[{'name':GROUP_BY_ID.get(k,{}).get('name',k),**v} for k,v in raw.get('collective_after',{}).items()];events.append(r)
+                r=dict(row);raw=json.loads(r.pop('data'));r['kind']=raw.get('kind','equipment');r['entries']=raw.get('entries',[]);r['feedback']=raw.get('feedback');r['noBorrow']=bool(raw.get('noBorrow'));r['essentialResponses']=raw.get('essentialResponses',[]);r['collective']=[{'name':GROUP_BY_ID.get(k,{}).get('name',k),**v} for k,v in raw.get('collective_after',{}).items()];events.append(r)
         state['events']=events
         state.update(messages=messages,jobs=jobs,visits=[self.visit_data(v,durations[v['id']]) for v in visits],feedback=feedback);return state
 
@@ -212,6 +212,9 @@ class ManagementAgentService(GuidedAgentService):
                 changes.append({'item':BY_ITEM.get(key,{}).get('name',key),'before':{k:b.get(k,0) for k in ('owned','borrowed','returned')},'after':{k:a.get(k,0) for k in ('owned','borrowed','returned')}})
             if raw.get('noBorrow'):lines=['本次未向协会借装备；所有装备借出、归还均设为0，原流水保留']+(lines if raw.get('collectiveProposals') else [])
             if raw.get('feedback'):lines.append('意见：'+raw['feedback']['content'])
+            if raw.get('essentialResponses'):
+                from agent_essentials import RESPONSE_LABELS
+                lines.extend(BY_ITEM[e['item']]['name']+'：'+RESPONSE_LABELS[e['status']] for e in raw['essentialResponses'])
             events.append({'id':row['id'],'name':BY_PERSON.get(row['person'],{}).get('name','未知登记'),'created':row['created'],'state':row['state'],'kind':raw.get('kind','equipment'),'changes':changes,'description':'；'.join(lines) or ('确认本次不携带集体装备' if raw.get('kind')=='collective' else '装备记忆')})
         return {'core':CORE,'summary':summaries,'people':people,'carrying':carrying,'collective':collective,'events':events,'archives':archives}
 
