@@ -32,11 +32,12 @@ def main():
                 match=re.search(r'https://[-a-z0-9]+\.trycloudflare\.com',line)
                 if match:url=match[0]
                 if url and not published and 'Registered tunnel connection' in line:
-                    for attempt in range(8):
+                    print('Checking member endpoint '+url,flush=True)
+                    while proc.poll() is None:
                         try:
                             with urllib.request.urlopen(url+'/health',timeout=12) as r:assert json.load(r).get('ok')
                             publish(url);published=True;break
-                        except Exception:time.sleep(3)
+                        except Exception as e:print('Endpoint check: '+str(e)[:160],flush=True);time.sleep(5)
                     if not published:raise ValueError('Temporary API or Pages update not ready')
             proc.wait()
         except Exception as e:print(type(e).__name__+': '+str(e)[:140]+'; reconnecting member API',flush=True)

@@ -12,5 +12,5 @@ export async function request(path,data={},session=''){
   await setupApi();
   const response=await fetch(API+path,{method:'POST',credentials:'same-origin',signal:abort.signal,keepalive:path==='/telemetry',headers:{'Content-Type':'application/json','X-Equipment-Visit':visitId(),...(session?{'X-Equipment-Member':session}:{})},body:JSON.stringify(data)});
   const result=await response.json();if(!response.ok){const e=new Error(result.error||'暂时没能保存，请重试');e.status=response.status;throw e;}return result;
- }catch(e){if(e.name==='AbortError')throw new Error('连接暂未完成，请保留草稿并重试');if(e instanceof TypeError)throw new Error('网络未连接，草稿已保留');throw e;}finally{clearTimeout(timer);}
+ }catch(e){if(e.name==='AbortError')throw new Error('连接暂未完成，请保留草稿并重试');if(e instanceof TypeError)throw new Error('暂时无法连接登记服务，草稿已保留。请稍后重试');throw e;}finally{clearTimeout(timer);}
 }
