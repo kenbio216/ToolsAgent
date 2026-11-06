@@ -39,7 +39,7 @@ def main():
                         except Exception:time.sleep(3)
                     if not published:raise ValueError('Temporary API or Pages update not ready')
             proc.wait()
-        except Exception as e:print(type(e).__name__+': reconnecting member API',flush=True)
+        except Exception as e:print(type(e).__name__+': '+str(e)[:140]+'; reconnecting member API',flush=True)
         finally:
             if proc.poll() is None:proc.terminate()
             try:proc.wait(timeout=12)

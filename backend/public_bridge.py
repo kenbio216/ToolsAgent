@@ -6,6 +6,16 @@ from urllib.parse import urlsplit
 ORIGIN='https://kenbio216.github.io'
 PREFIX='/api/gateway/equipment-agent'
 PUBLIC=re.compile(r'/(?:hello|enter|telemetry|feedback|guided-state|confirm-personal|confirm-collective|chat|commit|dismiss|transcribe|job/[a-f0-9]{32}|voice-job/[a-f0-9]{32})$')
+def member_result(value,name=''):
+ if isinstance(value,list):return [member_result(v,name) for v in value]
+ if not isinstance(value,dict):return value
+ person=value.get('person')
+ if isinstance(person,dict):name=person.get('name',name)
+ result={k:member_result(v,name) for k,v in value.items() if k!='sheetUrl'}
+ if 'collective' in result and isinstance(result['collective'],list):
+  for item in result['collective']:
+   if isinstance(item,dict) and 'assigned' in item:item['assigned']=name if name and name in re.split(r'[，,、\s]+',item['assigned']) else ''
+ return result
 class Limits:
  def __init__(self):self.lock=threading.Lock();self.events={}
  def allow(self,ip,path):
@@ -60,7 +70,7 @@ class Handler(BaseHTTPRequestHandler):
    try:
     connection.request('POST','/agent'+path,json.dumps(value).encode(),headers);r=connection.getresponse();body=r.read(2*1024*1024+1)
     if len(body)>2*1024*1024:raise ValueError('响应过大')
-    result=json.loads(body);return self.reply(r.status,result)
+    result=member_result(json.loads(body));return self.reply(r.status,result)
    finally:connection.close()
   except (ValueError,KeyError):return self.reply(400,{'error':'请求未完整，请检查后重试'})
   except (OSError,http.client.HTTPException):return self.reply(503,{'error':'登记服务暂未连通，草稿保留，请稍后再试'})
