@@ -1,0 +1,167 @@
+{
+  "source": "Example plan; configure for your own activity",
+  "items": [
+    {
+      "id": "rope_dynamic",
+      "name": "动力绳",
+      "total": "3",
+      "unit": "根",
+      "assigned": "",
+      "sourceName": "动力绳（根）",
+      "allocation": "1 / 1 / 1"
+    },
+    {
+      "id": "rope_static",
+      "name": "静力绳",
+      "total": "2",
+      "unit": "根",
+      "assigned": "",
+      "sourceName": "静力绳（根）",
+      "allocation": "1 / 1"
+    },
+    {
+      "id": "cams",
+      "name": "机械塞",
+      "total": "1",
+      "unit": "套",
+      "assigned": "",
+      "sourceName": "机械塞（套）",
+      "allocation": "领攀"
+    },
+    {
+      "id": "cord_short",
+      "name": "短辅绳段",
+      "total": "all",
+      "unit": "段",
+      "assigned": "",
+      "sourceName": "短辅绳段（段）",
+      "allocation": ""
+    },
+    {
+      "id": "cord_long",
+      "name": "长辅绳",
+      "total": "all",
+      "unit": "根",
+      "assigned": "",
+      "sourceName": "长辅绳（根）",
+      "allocation": ""
+    },
+    {
+      "id": "quickdraw_public",
+      "name": "公用快挂",
+      "total": "12",
+      "unit": "副",
+      "assigned": "",
+      "sourceName": "快挂（副）",
+      "allocation": "个人8；公用12"
+    },
+    {
+      "id": "lock_public",
+      "name": "公用主锁",
+      "total": "20",
+      "unit": "把",
+      "assigned": "",
+      "sourceName": "公用主锁（把）",
+      "allocation": "6 / 7 / 7"
+    },
+    {
+      "id": "sling120_public",
+      "name": "公用120cm扁带",
+      "total": "5",
+      "unit": "条",
+      "assigned": "",
+      "sourceName": "公用120cm扁带（条）",
+      "allocation": ""
+    },
+    {
+      "id": "sling60_wide",
+      "name": "60cm宽扁带",
+      "total": "6",
+      "unit": "条",
+      "assigned": "",
+      "sourceName": "60cm宽扁带（条）",
+      "allocation": "全部先锋携带"
+    },
+    {
+      "id": "sling60_thin",
+      "name": "60cm细扁带",
+      "total": "5",
+      "unit": "条",
+      "assigned": "",
+      "sourceName": "60cm细扁带（条）",
+      "allocation": ""
+    },
+    {
+      "id": "prusik_spare",
+      "name": "备用抓结",
+      "total": "3",
+      "unit": "个",
+      "assigned": "",
+      "sourceName": "抓结总数（套）",
+      "allocation": "个人8；备用3"
+    },
+    {
+      "id": "radio_spare",
+      "name": "备用对讲机",
+      "total": "1",
+      "unit": "台",
+      "assigned": "",
+      "sourceName": "对讲机（台）",
+      "allocation": "各人1，备用1"
+    },
+    {
+      "id": "knife",
+      "name": "小刀",
+      "total": "1",
+      "unit": "把",
+      "assigned": "",
+      "sourceName": "小刀（把）",
+      "allocation": "领攀"
+    },
+    {
+      "id": "technical_spare",
+      "name": "备用个人技术装备",
+      "total": "1",
+      "unit": "套",
+      "assigned": "",
+      "sourceName": "备用个人技术装备（套）",
+      "allocation": "全队备用"
+    },
+    {
+      "id": "medical",
+      "name": "公用医药包",
+      "total": "1",
+      "unit": "套",
+      "assigned": "",
+      "sourceName": "公用医药包（套）",
+      "allocation": "队医"
+    },
+    {
+      "id": "rope_sleeve",
+      "name": "绳套",
+      "total": "2",
+      "unit": "个",
+      "assigned": "",
+      "sourceName": "绳套",
+      "allocation": "先锋携带"
+    },
+    {
+      "id": "sling150_black",
+      "name": "150cm黑扁带",
+      "total": "5",
+      "unit": "条",
+      "assigned": "",
+      "sourceName": "150cm黑扁带（条）",
+      "allocation": ""
+    },
+    {
+      "id": "sling240",
+      "name": "240cm扁带",
+      "total": "3",
+      "unit": "条",
+      "assigned": "",
+      "sourceName": "240cm扁带（条）",
+      "allocation": ""
+    }
+  ]
+}

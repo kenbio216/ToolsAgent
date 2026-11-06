@@ -1,0 +1,15 @@
+node_modules/
+dist/
+admin-dist/
+.env
+.env.*
+!.env.example
+*.local.json
+*.sqlite3*
+*.xdb
+state/
+__pycache__/
+*.pyc
+*.pem
+*.key
+*.log

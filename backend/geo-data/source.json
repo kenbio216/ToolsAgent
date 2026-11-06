@@ -1,0 +1,36 @@
+{
+  "repository": "https://github.com/lionsoul2014/ip2region",
+  "commit": "6a276cc7c4f9f2d7ff1d8ace14b91af59752f943",
+  "files": [
+    {
+      "path": "vendor/ip2region/__init__.py",
+      "sha256": "5cef7d89ea2587b8086baf784732b361fad19c95486dc5bff1114e7f561eb956",
+      "bytes": 184
+    },
+    {
+      "path": "vendor/ip2region/searcher.py",
+      "sha256": "b44c455d6d27da141972b33c95d517ec66a87ca89f8b204d306ad2a7f150e6f2",
+      "bytes": 5564
+    },
+    {
+      "path": "vendor/ip2region/util.py",
+      "sha256": "56bb49948257f210ea687b03cfb0146ac68f13b5251ba9817fd4865834657052",
+      "bytes": 7598
+    },
+    {
+      "path": "vendor/ip2region/LICENSE",
+      "sha256": "4416735adc725546aea1d352879eac20932e76bc3050a4c81ec9fa6a3a3a125c",
+      "bytes": 12640
+    },
+    {
+      "path": "geo-data/ip2region_v4.xdb",
+      "sha256": "46249ad1b33bcaa4cc37475b93746cec2b00acffc3316cc4f56167ac821ea2ad",
+      "bytes": 11122714
+    },
+    {
+      "path": "geo-data/ip2region_v6.xdb",
+      "sha256": "939f6b46bd2b8bec3cf7c5ceb8ba782266ae9b1f35b5ba7916700dec0b7506ed",
+      "bytes": 37277813
+    }
+  ]
+}

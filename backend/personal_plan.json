@@ -1,0 +1,245 @@
+{
+  "source": "Example plan; configure for your own activity",
+  "items": [
+    {
+      "id": "backpack",
+      "name": "防水背包",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "helmet",
+      "name": "头盔",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "harness",
+      "name": "安全带",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "sling120",
+      "name": "120cm扁带",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "条"
+    },
+    {
+      "id": "ascender",
+      "name": "上升器",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "个"
+    },
+    {
+      "id": "atc",
+      "name": "ATC类保护器",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "个"
+    },
+    {
+      "id": "prusik",
+      "name": "抓结绳套",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "个"
+    },
+    {
+      "id": "lock",
+      "name": "主锁",
+      "quantity": 5,
+      "required": true,
+      "source": "可借",
+      "unit": "把"
+    },
+    {
+      "id": "shoes",
+      "name": "攀岩鞋",
+      "quantity": 1,
+      "required": false,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "plan_9",
+      "name": "徒步鞋",
+      "quantity": 1,
+      "required": true,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "plan_10",
+      "name": "速干内层",
+      "quantity": 1,
+      "required": true,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "fleece",
+      "name": "大抓绒",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "down",
+      "name": "大羽绒",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "shell",
+      "name": "冲锋衣",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "plan_14",
+      "name": "长裤",
+      "quantity": 1,
+      "required": true,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "plan_15",
+      "name": "手套",
+      "quantity": 1,
+      "required": false,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "plan_16",
+      "name": "袜子",
+      "quantity": 2,
+      "required": true,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "plan_17",
+      "name": "帽子/头巾",
+      "quantity": 1,
+      "required": false,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "crampons",
+      "name": "简易冰爪",
+      "quantity": null,
+      "required": false,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "gaiters",
+      "name": "雪套",
+      "quantity": null,
+      "required": false,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "headlamp",
+      "name": "头灯",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "raincoat",
+      "name": "雨衣",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "blanket",
+      "name": "救生毯",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "radio",
+      "name": "对讲机",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "件"
+    },
+    {
+      "id": "plan_24",
+      "name": "手机＋充电宝＋线",
+      "quantity": 1,
+      "required": true,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "plan_25",
+      "name": "食品/水",
+      "quantity": null,
+      "required": true,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "plan_26",
+      "name": "证件",
+      "quantity": null,
+      "required": true,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "plan_27",
+      "name": "垃圾袋",
+      "quantity": 2,
+      "required": true,
+      "source": "自备",
+      "unit": ""
+    },
+    {
+      "id": "quickdraw",
+      "name": "快挂（副保）",
+      "quantity": 1,
+      "required": true,
+      "source": "可借",
+      "unit": "副"
+    },
+    {
+      "id": "shell_pants",
+      "name": "冲锋裤",
+      "quantity": null,
+      "required": false,
+      "source": "可借",
+      "unit": "条"
+    }
+  ]
+}
