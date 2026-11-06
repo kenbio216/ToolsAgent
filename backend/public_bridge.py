@@ -19,17 +19,18 @@ def member_result(value,name=''):
 class Limits:
  def __init__(self):self.lock=threading.Lock();self.events={}
  def allow(self,ip,path):
-  now=time.monotonic();rules=[('all',60,600)]
-  if path=='/enter':rules.append(('enter',3600,60))
-  if path=='/chat':rules.append(('chat',3600,240))
-  if path=='/transcribe':rules.append(('voice',3600,120))
+  now=time.monotonic();rules=[(ip,'all',60,600),('*','all',60,1200)]
+  if path=='/enter':rules.append((ip,'enter',3600,60))
+  if path=='/chat':rules.extend([(ip,'chat',3600,240),('*','chat-hour',3600,int(os.environ.get('EQUIPMENT_PUBLIC_CHAT_HOURLY','120'))),('*','chat-day',86400,int(os.environ.get('EQUIPMENT_PUBLIC_CHAT_DAILY','300')))])
+  if path=='/transcribe':rules.extend([(ip,'voice',3600,120),('*','voice-hour',3600,240),('*','voice-day',86400,1000)])
   with self.lock:
-   if len(self.events)>10000:self.events={k:q for k,q in self.events.items() if q and q[-1]>now-3600}
-   for kind,seconds,cap in rules:
-    q=self.events.setdefault((ip,kind),collections.deque())
+   if len(self.events)>10000:self.events={k:q for k,q in self.events.items() if q and q[-1]>now-(86400 if k[1].endswith('-day') else 3600)}
+   if len(self.events)>=20000 and (ip,'all') not in self.events:return False
+   for owner,kind,seconds,cap in rules:
+    q=self.events.setdefault((owner,kind),collections.deque())
     while q and q[0]<now-seconds:q.popleft()
     if len(q)>=cap:return False
-   for kind,_,_ in rules:self.events[(ip,kind)].append(now)
+   for owner,kind,_,_ in rules:self.events[(owner,kind)].append(now)
   return True
 
 class Handler(BaseHTTPRequestHandler):
@@ -76,8 +77,22 @@ class Handler(BaseHTTPRequestHandler):
   except (OSError,http.client.HTTPException):return self.reply(503,{'error':'登记服务暂未连通，草稿保留，请稍后再试'})
  do_GET=dispatch;do_HEAD=dispatch;do_POST=dispatch;do_OPTIONS=dispatch
 
+class BoundedServer(ThreadingHTTPServer):
+ def __init__(self,*args,**kwargs):
+  super().__init__(*args,**kwargs);self.slots=threading.BoundedSemaphore(64)
+ def process_request(self,request,address):
+  if not self.slots.acquire(blocking=False):
+   try:request.sendall(b'HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+   finally:self.shutdown_request(request)
+   return
+  try:super().process_request(request,address)
+  except Exception:self.slots.release();raise
+ def process_request_thread(self,*args):
+  try:super().process_request_thread(*args)
+  finally:self.slots.release()
+
 def make_server(port=18953,token=None,backend_port=18937):
  token=token or os.environ.get('ASSET_FILE_TOKEN','')
  if len(token)<32:raise ValueError('Missing private service credential')
- s=ThreadingHTTPServer(('127.0.0.1',port),Handler);s.daemon_threads=True;s.limits=Limits();s.token=token;s.backend_port=backend_port;return s
+ s=BoundedServer(('127.0.0.1',port),Handler);s.daemon_threads=True;s.limits=Limits();s.token=token;s.backend_port=backend_port;return s
 if __name__=='__main__':make_server().serve_forever()

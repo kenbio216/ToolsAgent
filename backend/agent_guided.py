@@ -192,7 +192,7 @@ class GuidedAgentService(SimpleAgentService):
         ctx={'当前登记人':state['person'],'个人可借目录':[{'id':i['id'],'name':i['name'],'unit':i['unit']} for i in CATALOG if i['id'] in dict(EXTRA)],
              '仅当用户主动提到才使用的技术装备目录':[{'id':i['id'],'name':i['name'],'unit':i['unit']} for i in CORE],
              '真实借还记录':loans,'独立装备记忆':state['notes'],
-             '集体装备目录与本人第二步记录':[{**{k:i[k] for k in ('id','name','total','unit','assigned','plannedQuantity')},'本人已确认':guided['collectiveChecks'].get(i['id'],{})} for i in guided['collective']],
+             '集体装备目录与本人第二步记录':[{**{k:i[k] for k in ('id','name','total','unit','plannedQuantity')},'assigned':state['person']['name'] if state['person']['name'] in group_owners(i) else '', '本人已确认':guided['collectiveChecks'].get(i['id'],{})} for i in guided['collective']],
              '可能遗漏的本人集体项目':guided['collectiveReminders']}
         return BORROW_SYSTEM+'\n'+json.dumps(ctx,ensure_ascii=False),rows[:-1]
     def validate_answer(self,job,person,answer):
