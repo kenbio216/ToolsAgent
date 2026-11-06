@@ -6,6 +6,7 @@ from agent_simple import normalized_name
 from agent_catalog import BY_PERSON,PEOPLE,ACTIVE_IDS,CORE,BY_ITEM
 from agent_collective import GROUP_BY_ID
 from agent_geo import locate
+from agent_owner import OwnerAgentMixin
 
 STAGES={'entry':'姓名入口','personal':'个人装备','collective':'集体携带','borrow':'借还对话'}
 VISIT=re.compile(r'[A-Za-z0-9_-]{16,80}')
@@ -21,7 +22,7 @@ def device(ua):
     browser=next((label for word,label in [('MicroMessenger','微信内置浏览器'),('Edg/','Edge'),('CriOS/','Chrome'),('Chrome/','Chrome'),('Firefox/','Firefox'),('Safari/','Safari')] if word in ua),'未知浏览器')
     return system+' · '+browser
 
-class ManagementAgentService(GuidedAgentService):
+class ManagementAgentService(OwnerAgentMixin,GuidedAgentService):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
         with self.db() as d:
@@ -39,6 +40,7 @@ class ManagementAgentService(GuidedAgentService):
             ''')
             d.execute("INSERT OR IGNORE INTO settings VALUES('analytics_started',?)",(stamp(),))
         self._last_cleanup=0
+        self.init_owner_agent()
 
     def optional_person(self,token):return self.session_person(token) if token else ''
     def telemetry(self,h,value,token):
@@ -102,6 +104,7 @@ class ManagementAgentService(GuidedAgentService):
 
     def on_record_confirmed(self,d,event,value,job):
         super().on_record_confirmed(d,event,value,job)
+        self.owner_record_confirmed(d,event,value,job)
         f=value.get('feedback')
         if not f:return
         if not isinstance(f,dict) or f.get('category') not in ('bug','catalog','suggestion','other'):raise ValueError('请选择有效的意见类型')
@@ -246,8 +249,9 @@ class ManagementAgentService(GuidedAgentService):
             if raw.get('essentialResponses'):
                 from agent_essentials import RESPONSE_LABELS
                 lines.extend(BY_ITEM[e['item']]['name']+'：'+RESPONSE_LABELS[e['status']] for e in raw['essentialResponses'])
-            events.append({'id':row['id'],'name':BY_PERSON.get(row['person'],{}).get('name','未知登记'),'created':row['created'],'state':row['state'],'kind':raw.get('kind','equipment'),'changes':changes,'description':'；'.join(lines) or ('确认本次不携带集体装备' if raw.get('kind')=='collective' else '装备记忆')})
-        return {'core':CORE,'summary':summaries,'people':people,'carrying':carrying,'collective':collective,'personalOverview':required_overview,'rentals':rentals,'events':events,'archives':archives}
+            events.append({'id':row['id'],'name':BY_PERSON.get(row['person'],{}).get('name','未知登记'),'created':row['created'],'state':row['state'],'kind':raw.get('kind','equipment'),'actor':raw.get('actor','member'),'changes':changes,'description':'；'.join(lines) or ('确认本次不携带集体装备' if raw.get('kind')=='collective' else '装备记忆')})
+        warehouse={'personal':rentals,'collective':collective}
+        return {'core':CORE,'summary':summaries,'people':people,'carrying':carrying,'collective':collective,'personalOverview':required_overview,'rentals':rentals,'warehouse':warehouse,'events':events,'archives':archives}
 
     def requests(self,value):
         person=value.get('person');visit=value.get('visit');offset=value.get('offset',0);minutes=value.get('minutes',60)
@@ -268,6 +272,7 @@ class ManagementAgentService(GuidedAgentService):
         if path=='/feedback':return self.feedback_submit(h,value,token)
         if path.startswith('/admin/'):
             if not owner:raise PermissionError('仅本人尾网认证后可访问管理数据')
+            if path.startswith('/admin/ai/'):return self.owner_dispatch(path,value)
             if path=='/admin/overview':return self.overview(value)
             if path=='/admin/person':return self.person_detail(text(value.get('person',''),80))
             if path=='/admin/requests':return self.requests(value)

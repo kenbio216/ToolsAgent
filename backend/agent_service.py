@@ -256,7 +256,9 @@ class AgentService:
                 if result[-1]['returned']>q:raise ValueError('归还数量不能超过借出数量')
         return result
     def record_source(self,d,person):return person
-    def record(self,person,value,job=None):
+    def before_record(self,d,person,source,value,job,owner_job=None):pass
+    def running_model_jobs(self,d):return d.execute("SELECT count(*) FROM jobs WHERE state='running'").fetchone()[0]
+    def record(self,person,value,job=None,*,owner_job=None):
         request=text(value.get('requestId',''),100)
         if not re.fullmatch(r'[a-zA-Z0-9_-]{12,100}',request):raise ValueError('登记编号无效，请刷新后重试')
         memory=text(value.get('memory',''),500)
@@ -276,6 +278,7 @@ class AgentService:
             revision=d.execute('SELECT revision FROM members WHERE person=?',(person,)).fetchone()[0]
             if value.get('revision')!=revision:raise Conflict('记录已在另一处更新，请刷新核对后再确认；本次草稿仍保留')
             source=self.record_source(d,person)
+            self.before_record(d,person,source,value,job,owner_job)
             before={};after={}
             for e in entries:
                 i=e['item']
@@ -308,6 +311,7 @@ class AgentService:
             target=self.target_for(person)
             if not entries:target=None
             event={'id':uuid.uuid4().hex,'person':person,'target':target,'sharedSource':source,'before':before,'after':after,'entries':entries,'created':stamp()}
+            if owner_job:event['ownerJob']=owner_job
             if feedback:
                 event['feedback']=feedback
                 if not entries:event['kind']='feedback'
@@ -349,7 +353,7 @@ class AgentService:
             if prior:
                 if prior['person']!=person:raise PermissionError('无法读取这条消息')
                 return {'job':prior['id']}
-            running=d.execute("SELECT count(*) FROM jobs WHERE state='running'").fetchone()[0]
+            running=self.running_model_jobs(d)
             if running>=3 or d.execute("SELECT 1 FROM jobs WHERE person=? AND state='running'",(person,)).fetchone():raise Conflict('已有消息正在处理，完成后可继续登记')
             recent=d.execute('SELECT count(*) FROM jobs WHERE person=? AND created>?',(person,(datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))-datetime.timedelta(minutes=10)).isoformat(timespec='seconds'))).fetchone()[0]
             if recent>=20:raise ValueError('这段时间消息较多，请稍后再试；可先使用个人核对清单')

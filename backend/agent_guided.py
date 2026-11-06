@@ -252,6 +252,8 @@ class GuidedAgentService(SimpleAgentService):
             answer['proposals']=self.entries([{'item':i['id'],'action':'loan_set','quantity':0,'returned':0,'condition':items[i['id']]['condition'],'detail':'本人声明本次未向协会借用；覆盖借出和归还为0，原记录保留流水'} for i in CATALOG])
         if scope and scope['stage']=='borrow' and any(e['action'] not in ('loan_set','borrow','return','issue') and not(e['action']=='self' and e['item'] in ESSENTIALS) for e in answer['proposals']):raise ValueError('这一步只登记借还及必备装备自备说明；个人技术装备核对在第一步操作')
 
+    def running_voice_jobs(self,d):return d.execute("SELECT COUNT(*) FROM voice_jobs WHERE state='running'").fetchone()[0]
+
     def voice_start(self,p,value):
         request=text(value.get('requestId',''),100);audio=value.get('audio','');mime=value.get('mime','')
         if not re.fullmatch(r'[a-zA-Z0-9_-]{12,100}',request):raise ValueError('请重新录音')
@@ -265,7 +267,7 @@ class GuidedAgentService(SimpleAgentService):
             if prior:
                 if prior['person']!=p:raise PermissionError('录音不属于当前会话')
                 return {'job':prior['id']}
-            if d.execute("SELECT COUNT(*) FROM voice_jobs WHERE state='running'").fetchone()[0]>=3:raise Conflict('语音正在识别，请稍后再试')
+            if self.running_voice_jobs(d)>=3:raise Conflict('语音正在识别，请稍后再试')
             ident=uuid.uuid4().hex;d.execute('INSERT INTO voice_jobs(id,request,person,state,created) VALUES(?,?,?,?,?)',(ident,request,p,'running',stamp()))
         self.pool.submit(self.voice_worker,ident,audio,mime);return {'job':ident}
     def voice_worker(self,ident,audio,mime):
