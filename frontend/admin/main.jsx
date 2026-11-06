@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import * as Dialog from '@radix-ui/react-dialog';
 import {LockKeyhole,LayoutDashboard,Users,Bot,Activity,MessageSquare,RefreshCw,ArrowUpRight,X,Clock,Monitor,Check,Search,ChevronRight,LoaderCircle,PackageCheck} from 'lucide-react';
 import './style.css';
+import InventoryPanel from './InventoryPanel';
 const API='/api/gateway/equipment-agent';
 const stages={entry:'姓名入口',personal:'个人装备',collective:'集体携带',borrow:'借还对话'};
 const dt=value=>value?new Date(typeof value==='number'?value*1000:value).toLocaleString('zh-CN',{hour12:false}):'未采集';
@@ -32,7 +33,7 @@ function Inventory(){
  async function load(){try{setData(await api('/admin/inventory'));setError('');}catch(e){setError(e.message);}}
  useEffect(()=>{load();const t=setInterval(()=>{if(!document.hidden)load();},10000);return()=>clearInterval(t);},[]);
  if(!data)return <Empty>{error||'正在读取装备明细…'}</Empty>;
- return <><section><div className="section-heading"><div><h2>个人技术装备数量核查</h2><p className="hint">按最新已确认登记统计，自带与协会借用分开；旧记录未填的数量不当作已登记数量。公用装备另计。</p></div><button className="button" onClick={load}><RefreshCw size={16}/>刷新明细</button></div>{error&&<p className="error">{error}</p>}<div className="table-scroll"><table><thead><tr><th>装备</th><th>全队需求</th><th>自带</th><th>协会未还</th><th>已登记合计</th><th>尚待登记或补足</th></tr></thead><tbody>{data.summary.map(i=><tr key={i.id}><td>{i.name}</td><td>{i.requiredTotal}{i.unit}</td><td>{i.owned}</td><td>{i.borrowedOpen}</td><td>{i.registered}</td><td>{Math.max(0,i.requiredTotal-i.registered)}</td></tr>)}</tbody></table></div><h3>逐人核对</h3><div className="table-scroll"><table className="people-table"><thead><tr><th>队员</th>{data.core.map(i=><th key={i.id}>{i.name}</th>)}</tr></thead><tbody>{data.people.map(p=><tr key={p.id}><td>{p.name}</td>{data.core.map(i=><td key={i.id} style={{whiteSpace:'pre-line'}}>{p.checks[i.id]}</td>)}</tr>)}</tbody></table></div></section><CollectiveInventory items={data.collective||[]}/><section><h2>最近100条装备登记流水</h2><p className="hint">保留每次自带、借还、核对与集体携带确认；已确认历史不会因飞书精简而删除。</p>{data.events.map(e=><div className="list-line" key={e.id}><strong>{e.name}</strong> · {dt(e.created)} · <span className="tag">{['collective','feedback'].includes(e.kind)?'仅管理页保存':e.state}</span><p>{e.description}</p>{e.changes?.length>0&&<details><summary>查看修改前后</summary>{e.changes.map((c,n)=><p key={n}>{c.item}：自带 {c.before.owned} → {c.after.owned}；借出 {c.before.borrowed} → {c.after.borrowed}；归还 {c.before.returned} → {c.after.returned}</p>)}</details>}</div>)}</section>{data.archives.length>0&&<section><h2>旧辅助表迁移存档</h2><p className="hint">迁移时的只读快照，供追溯，不作为实时统计。飞书中的原表已收起。</p>{data.archives.map(a=><details key={a.name}><summary>{a.name} · {dt(a.created)}</summary><div className="table-scroll"><table><tbody>{a.rows.filter(r=>r.some(Boolean)).map((r,k)=><tr key={k}>{r.map((c,j)=><td key={j}>{c}</td>)}</tr>)}</tbody></table></div></details>)}</section>}</>;
+ return <InventoryPanel data={data} error={error} onRefresh={load}><CollectiveInventory items={data.collective||[]}/></InventoryPanel>;
 }
 
 function App(){

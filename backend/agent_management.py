@@ -2,6 +2,7 @@
 import datetime,ipaddress,json,re,time,uuid
 from agent_guided import GuidedAgentService,declared_group_items,group_owners
 from agent_service import stamp,text
+from agent_simple import normalized_name
 from agent_catalog import BY_PERSON,PEOPLE,ACTIVE_IDS,CORE,BY_ITEM
 from agent_collective import GROUP_BY_ID
 from agent_geo import locate
@@ -163,21 +164,51 @@ class ManagementAgentService(GuidedAgentService):
         state.update(messages=messages,jobs=jobs,visits=[self.visit_data(v,durations[v['id']]) for v in visits],feedback=feedback);return state
 
     def inventory(self):
-        from agent_inventory import human_checks
+        from agent_inventory import human_checks,personal_overview,rental_overview,recorded_actions
+        from agent_guided import PERSONAL_PLAN
         team={p['id']:self.profile(p['id']) for p in PEOPLE}
+        # This snapshot already incorporates the latest confirmed shared state.
+        # Replaying older pending sync events must not undo a newer submission.
+        personal_team={p['id']:self.profile(p['id']) for p in PEOPLE}
         with self.db() as d:
             event_rows=d.execute('SELECT * FROM events ORDER BY rowid').fetchall()
+            latest={};loan_order={}
+            for index,row in enumerate(event_rows):
+                raw=json.loads(row['data']);source=raw.get('sharedSource') or raw.get('target') or row['person']
+                for item in raw.get('after',{}):latest[(source,item)]=row['id']
+                if any(e['action'] in ('borrow','return','loan_set') for e in raw.get('entries',[])):loan_order[source]=index
             for row in event_rows:
                 raw=json.loads(row['data']);target=raw.get('target',row['person'])
-                if target in team and row['state'] in ('pending','conflict'):
+                if target in team and not raw.get('sharedSource') and row['state'] in ('pending','conflict'):
                     for item,value in raw.get('after',{}).items():
-                        if item in team[target]['items']:team[target]['items'][item]=value
+                        if item in team[target]['items'] and latest.get((target,item))==row['id']:
+                            team[target]['items'][item]=value;personal_team[target]['items'][item]=value
             carrying=[];group_rows={}
             for row in d.execute('SELECT * FROM group_items WHERE checked=1'):
                 if row['person'] in team:
                     group_rows[(row['person'],row['item'])]=dict(row)
                     carrying.append({'name':BY_PERSON[row['person']]['name'],'item':GROUP_BY_ID.get(row['item'],{}).get('name',row['item']),'quantity':row['quantity']})
             archives=[{'name':r['name'],'rows':json.loads(r['rows']),'created':r['created']} for r in d.execute('SELECT * FROM sheet_archives')]
+            declarations={(r['person'],r['item']):dict(r) for r in d.execute('SELECT * FROM essential_responses')}
+            sources=list(dict.fromkeys(self.record_source(d,r['person']) for r in d.execute('SELECT person FROM members').fetchall()))
+        rentals_team=dict(personal_team)
+        recorded=recorded_actions(event_rows,{source:None for source in sources})
+        for source in sources:
+            if source not in rentals_team and source in BY_PERSON:
+                profile=self.profile(source)
+                has_facts=any(a['borrowed'] or a['returned'] for a in profile['items'].values())
+                if has_facts or any(who==source and actions & {'borrow','return','loan_set'} for (who,item),actions in recorded.items()):rentals_team[source]=profile
+        # Historical roster rows can coexist with a later unlinked registration
+        # for a withdrawn name. The latest confirmed loan state wins once.
+        names={}
+        for source,profile in rentals_team.items():
+            name=normalized_name(profile['person']['name'])
+            priority=(source in ACTIVE_IDS,loan_order.get(source,-1),any(a['borrowed'] or a['returned'] for a in profile['items'].values()))
+            if name not in names or priority>names[name][0]:names[name]=(priority,source,profile)
+        rentals_team={source:profile for priority,source,profile in names.values()}
+        for source,profile in rentals_team.items():profile['person']={**profile['person'],'active':source in ACTIVE_IDS}
+        required_overview=personal_overview(personal_team,PERSONAL_PLAN,event_rows,declarations,group_rows)
+        rentals=rental_overview(rentals_team,event_rows)
         collective_confirmed={p:set() for p in team}
         for row in event_rows:
             raw=json.loads(row['data'])
@@ -216,7 +247,7 @@ class ManagementAgentService(GuidedAgentService):
                 from agent_essentials import RESPONSE_LABELS
                 lines.extend(BY_ITEM[e['item']]['name']+'：'+RESPONSE_LABELS[e['status']] for e in raw['essentialResponses'])
             events.append({'id':row['id'],'name':BY_PERSON.get(row['person'],{}).get('name','未知登记'),'created':row['created'],'state':row['state'],'kind':raw.get('kind','equipment'),'changes':changes,'description':'；'.join(lines) or ('确认本次不携带集体装备' if raw.get('kind')=='collective' else '装备记忆')})
-        return {'core':CORE,'summary':summaries,'people':people,'carrying':carrying,'collective':collective,'events':events,'archives':archives}
+        return {'core':CORE,'summary':summaries,'people':people,'carrying':carrying,'collective':collective,'personalOverview':required_overview,'rentals':rentals,'events':events,'archives':archives}
 
     def requests(self,value):
         person=value.get('person');visit=value.get('visit');offset=value.get('offset',0);minutes=value.get('minutes',60)
