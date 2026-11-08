@@ -66,6 +66,13 @@ def reusable_active(active):
     # Legacy/external connections can be adopted without assuming ownership.
     try:verify_member_endpoint(active['url']);return True
     except Exception:return False
+def connector_revoked(unit):
+    # A live process can retry forever after the provider deletes its tunnel.
+    # Only repeated explicit revocation is grounds to replace a live connector;
+    # ordinary TLS, resolver and origin errors must retain the published route.
+    if not managed_unit(unit):return False
+    p=subprocess.run(['journalctl','--user','--unit='+unit,'--since=-2min','--no-pager','--output=cat','-n','100'],capture_output=True,text=True,timeout=15)
+    return p.returncode==0 and p.stdout.count('Register tunnel error from server side error="Unauthorized: Tunnel not found"')>=3
 def start_connector():
     unit='kenbio-equipment-tunnel-'+uuid.uuid4().hex+'.service'
     connector=str(Path.home()/'.local/bin/cloudflared-equipment')
@@ -141,6 +148,10 @@ def main():
             if reusable_active(active):
                 try:verify_member_endpoint(active['url'])
                 except Exception as error:
+                    if connector_revoked(active.get('unit')):
+                        candidate=start_connector()
+                        prepare_candidate(candidate,active)
+                        continue
                     if time.monotonic()-last_active_log>=60:
                         print('Published member connector retained: '+safe_reason(error),flush=True);last_active_log=time.monotonic()
                 time.sleep(30)
