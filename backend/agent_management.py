@@ -28,6 +28,7 @@ class ManagementAgentService(OwnerAgentMixin,GuidedAgentService):
         with self.db() as d:
             d.executescript('''
             CREATE TABLE IF NOT EXISTS sheet_archives(name TEXT PRIMARY KEY,rows TEXT,created TEXT);
+            CREATE TABLE IF NOT EXISTS collective_returns(person TEXT,item TEXT,quantity INTEGER,original_quantity INTEGER,complete INTEGER,created TEXT,PRIMARY KEY(person,item));
             CREATE TABLE IF NOT EXISTS visits(id TEXT PRIMARY KEY,person TEXT DEFAULT '',created REAL,last REAL,stage TEXT,visible INTEGER,ip TEXT,ua TEXT,width INTEGER,height INTEGER,dpr REAL,seq INTEGER DEFAULT -1);
             CREATE TABLE IF NOT EXISTS dwell(visit TEXT,stage TEXT,ms INTEGER DEFAULT 0,PRIMARY KEY(visit,stage));
             CREATE TABLE IF NOT EXISTS visit_events(id INTEGER PRIMARY KEY,visit TEXT,at REAL,stage TEXT,visible INTEGER);
@@ -168,6 +169,7 @@ class ManagementAgentService(OwnerAgentMixin,GuidedAgentService):
 
     def inventory(self):
         from agent_inventory import human_checks,personal_overview,rental_overview,recorded_actions
+        from agent_returns import collective_return_view
         from agent_guided import PERSONAL_PLAN
         team={p['id']:self.profile(p['id']) for p in PEOPLE}
         # This snapshot already incorporates the latest confirmed shared state.
@@ -193,6 +195,7 @@ class ManagementAgentService(OwnerAgentMixin,GuidedAgentService):
                     carrying.append({'name':BY_PERSON[row['person']]['name'],'item':GROUP_BY_ID.get(row['item'],{}).get('name',row['item']),'quantity':row['quantity']})
             archives=[{'name':r['name'],'rows':json.loads(r['rows']),'created':r['created']} for r in d.execute('SELECT * FROM sheet_archives')]
             declarations={(r['person'],r['item']):dict(r) for r in d.execute('SELECT * FROM essential_responses')}
+            returned_collective={(r['person'],r['item']):dict(r) for r in d.execute('SELECT * FROM collective_returns')}
             sources=list(dict.fromkeys(self.record_source(d,r['person']) for r in d.execute('SELECT person FROM members').fetchall()))
         rentals_team=dict(personal_team)
         recorded=recorded_actions(event_rows,{source:None for source in sources})
@@ -246,11 +249,12 @@ class ManagementAgentService(OwnerAgentMixin,GuidedAgentService):
                 changes.append({'item':BY_ITEM.get(key,{}).get('name',key),'before':{k:b.get(k,0) for k in ('owned','borrowed','returned')},'after':{k:a.get(k,0) for k in ('owned','borrowed','returned')}})
             if raw.get('noBorrow'):lines=['本次未向协会借装备；所有装备借出、归还均设为0，原流水保留']+(lines if raw.get('collectiveProposals') else [])
             if raw.get('feedback'):lines.append('意见：'+raw['feedback']['content'])
+            for entry in raw.get('collectiveReturns',[]):lines.append(GROUP_BY_ID.get(entry['item'],{}).get('name',entry['item'])+' 已归还 '+(str(entry['quantity']) if entry['quantity'] is not None else '原数量未填'))
             if raw.get('essentialResponses'):
                 from agent_essentials import RESPONSE_LABELS
                 lines.extend(BY_ITEM[e['item']]['name']+'：'+RESPONSE_LABELS[e['status']] for e in raw['essentialResponses'])
             events.append({'id':row['id'],'name':BY_PERSON.get(row['person'],{}).get('name','未知登记'),'created':row['created'],'state':row['state'],'kind':raw.get('kind','equipment'),'actor':raw.get('actor','member'),'changes':changes,'description':'；'.join(lines) or ('确认本次不携带集体装备' if raw.get('kind')=='collective' else '装备记忆')})
-        warehouse={'personal':rentals,'collective':collective}
+        warehouse={'personal':rentals,'collective':collective_return_view(collective,returned_collective)}
         return {'core':CORE,'summary':summaries,'people':people,'carrying':carrying,'collective':collective,'personalOverview':required_overview,'rentals':rentals,'warehouse':warehouse,'events':events,'archives':archives}
 
     def requests(self,value):

@@ -1,7 +1,7 @@
 """Scoped equipment conversations, independent memory and a durable Feishu outbox.
 
 The existing Remarks columns are never written. Confirmed sheet writes contain
-loan counts, review markers and the concise personal checklist only.
+loan counts and the concise personal checklist only.
 """
 from __future__ import annotations
 import base64,concurrent.futures,contextlib,copy,datetime,hashlib,io,csv,json,os,re,secrets,sqlite3,subprocess,threading,time,uuid
@@ -51,8 +51,8 @@ class Feishu:
             names={s['sheet_name'] for s in self.cli(['+workbook-info'])['sheets']}
             created=[]
             if CHECK_SHEET not in names:
-                columns=['姓名','绳组','主锁（5把）','ATC（1个）','上升器（1个）','抓结（1个）','120cm扁带（1条）','副保快挂（1副）','足额核对','待办','更新时间','变更标记']
-                rows=[[p['name'],p['group']+'·'+p['role']]+['待核对']*6+['0/6项','五把锁＋五件装备待核对',stamp(),'新增'] for p in PEOPLE]
+                columns=['姓名','绳组','主锁（5把）','ATC（1个）','上升器（1个）','抓结（1个）','120cm扁带（1条）','副保快挂（1副）','足额核对','待办','更新时间']
+                rows=[[p['name'],p['group']+'·'+p['role']]+['待核对']*6+['0/6项','五把锁＋五件装备待核对',stamp()] for p in PEOPLE]
                 self.new_sheet(CHECK_SHEET,columns,rows)
                 self.upgrade_check_formulas()
                 checked=self.cli(['+formula-verify','--sheet-name',CHECK_SHEET,'--range',f'I2:I{len(PEOPLE)+1}','--exit-on-error'])
@@ -68,11 +68,10 @@ class Feishu:
         if present!=list(active):raise Conflict('个人装备核对表的人员行或顺序已变化，请管理员核对后再同步')
         return {active[r[0]]:n for n,r in enumerate(rows[1:],2) if r and r[0] in active}
     def upgrade_check_formulas(self):
-        # Only the assistant-owned completion and review-marker columns.
+        # Only the assistant-owned completion column.
         rows=list(self.check_rows().values())
         self.write([{'sheet_name':CHECK_SHEET,'range':f'I{r}',
-            'cells':[[{'formula':f'=(COUNTIF(C{r}:H{r},"已核对*")+COUNTIF(C{r}:H{r},"已带齐*"))&"/6项"'}]]} for r in rows]+
-            [{'sheet_name':CHECK_SHEET,'range':f'L{r}','cells':[[{'value':'此行被修改，待查看'}]]} for r in rows])
+            'cells':[[{'formula':f'=(COUNTIF(C{r}:H{r},"已核对*")+COUNTIF(C{r}:H{r},"已带齐*"))&"/6项"'}]]} for r in rows])
     def new_sheet(self,name,columns,rows):
         end=col(len(columns));n=max(2,len(rows)+1)
         body={'sheets':[{'name':name,'columns':columns,'data':rows,'dtypes':{c:'object' for c in columns}}]}
@@ -131,7 +130,6 @@ class Feishu:
                 if desired!=old or item in explicit:
                     writes.append({'sheet_name':'装备借用记录','range':f'{col(j+1)}{mapping[item]}:{col(j+2)}{mapping[item]}',
                         'cells':[[{'value':v,'cell_styles':{'number_format':'0'}} for v in desired]]})
-                    writes.append({'sheet_name':'装备借用记录','range':f'T{mapping[item]}','cells':[[{'value':'此行被修改，待查看'}]]})
             r=self.check_rows()[target]
             identity=self.values(CHECK_SHEET,f'A{r}:B{r}')[0]
             if identity[0]!=BY_PERSON[target]['name']:raise Conflict('核对表人员行已移动，未写入其他人的行')
@@ -146,7 +144,7 @@ class Feishu:
                 missing=[i['name'] for k,i in enumerate(CORE) if not checks[k].startswith(('已核对','已带齐'))]
                 todo='待核对：'+'、'.join(missing) if missing else '全部已核对'
             writes.append({'sheet_name':CHECK_SHEET,'range':f'C{r}:H{r}','cells':[[{'value':v} for v in checks]]})
-            writes.append({'sheet_name':CHECK_SHEET,'range':f'J{r}:L{r}','cells':[[{'value':v} for v in [todo,stamp(),'此行被修改，待查看']]]})
+            writes.append({'sheet_name':CHECK_SHEET,'range':f'J{r}:K{r}','cells':[[{'value':v} for v in [todo,stamp()]]]})
             self.write(writes)
             # Verify the exact values written, including person and item coordinates.
             for item in event['before']:

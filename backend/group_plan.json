@@ -48,12 +48,12 @@
     },
     {
       "id": "quickdraw_public",
-      "name": "公用快挂",
-      "total": "12",
+      "name": "公用快挂（两类合计）",
+      "total": "36",
       "unit": "副",
       "assigned": "",
       "sourceName": "快挂（副）",
-      "allocation": "个人8；公用12"
+      "allocation": "运动31、阿式13；含个人副保8，公用合计36；类型份额待核实"
     },
     {
       "id": "lock_public",
@@ -163,5 +163,13 @@
       "sourceName": "240cm扁带（条）",
       "allocation": ""
     }
-  ]
+  ],
+  "quickdrawTotals": {
+    "sport": 31,
+    "alpine": 13,
+    "total": 44,
+    "personal": 8,
+    "public": 36,
+    "personalTypeAllocation": null
+  }
 }
